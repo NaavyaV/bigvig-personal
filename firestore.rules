@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Personal board — open access. Add Auth before going public.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
