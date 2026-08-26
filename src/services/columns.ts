@@ -115,6 +115,14 @@ export async function updateColumn(
   id: string,
   patch: Partial<Pick<BoardColumn, 'name' | 'order'>>,
 ): Promise<void> {
+  if (patch.name !== undefined) {
+    const snap = await getDocs(userColumnsCol(uid));
+    const target = snap.docs.find((d) => d.id === id);
+    const role = target?.data().role as ColumnRole | undefined;
+    if (role === 'start' || role === 'end') {
+      throw new Error('Not started and Completed columns cannot be renamed');
+    }
+  }
   await updateDoc(userColumnDoc(uid, id), patch);
 }
 
