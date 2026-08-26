@@ -4,6 +4,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { Board } from './components/Board';
 import { CategoryManager } from './components/CategoryManager';
 import { ColumnManager } from './components/ColumnManager';
+import { DueSchedule } from './components/DueSchedule';
 import { ProfileMenu } from './components/ProfileMenu';
 import { TaskModal } from './components/TaskModal';
 import { useBoardData } from './hooks/useBoardData';
@@ -43,11 +44,9 @@ function BoardApp({ uid }: { uid: string }) {
   const endId = getEndColumnId(columns);
 
   const stats = useMemo(() => {
-    const total = tasks.length;
     const done = tasks.filter((t) => t.status === endId).length;
     const backlog = tasks.filter((t) => t.status === startId).length;
-    const active = Math.max(0, total - done - backlog);
-    return { total, done, active, backlog };
+    return { done, backlog };
   }, [tasks, startId, endId]);
 
   const openCreate = useCallback(() => {
@@ -130,10 +129,6 @@ function BoardApp({ uid }: { uid: string }) {
               <span className="stat__value">{stats.backlog}</span>
               <span className="stat__label">Backlog</span>
             </div>
-            <div className="stat stat--accent">
-              <span className="stat__value">{stats.active}</span>
-              <span className="stat__label">Active</span>
-            </div>
             <div className="stat">
               <span className="stat__value">{stats.done}</span>
               <span className="stat__label">Done</span>
@@ -161,6 +156,14 @@ function BoardApp({ uid }: { uid: string }) {
       </header>
 
       <main className="main">
+        {!loading && !error && (
+          <DueSchedule
+            tasks={tasks}
+            categories={categories}
+            columns={columns}
+            onOpenTask={openEdit}
+          />
+        )}
         {loading && (
           <div className="board board--skeleton" aria-busy="true" aria-label="Loading board">
             {[0, 1, 2].map((i) => (

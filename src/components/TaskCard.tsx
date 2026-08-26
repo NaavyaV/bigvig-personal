@@ -10,17 +10,17 @@ import { PRIORITY_LABELS, PRIORITY_TINTS, formatExpectedMinutes } from '../types
 function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: boolean): CSSProperties {
   if (isDone) return {};
 
+  if (category?.color) {
+    return {
+      background: `color-mix(in srgb, ${category.color} 22%, #ffffff)`,
+      borderColor: `color-mix(in srgb, ${category.color} 28%, rgba(18, 21, 28, 0.08))`,
+    };
+  }
+
   if (task.priority) {
     return {
       background: PRIORITY_TINTS[task.priority],
       borderColor: 'rgba(18, 21, 28, 0.08)',
-    };
-  }
-
-  if (category?.color) {
-    return {
-      background: `color-mix(in srgb, ${category.color} 9%, #ffffff)`,
-      borderColor: `color-mix(in srgb, ${category.color} 18%, rgba(18, 21, 28, 0.08))`,
     };
   }
 
