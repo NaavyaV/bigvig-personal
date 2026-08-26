@@ -101,18 +101,20 @@ function SortableColumnRow({
         <>
           <span className="col-mgr__name">{column.name}</span>
           {locked && <span className="col-mgr__badge">Required</span>}
-          <button type="button" className="btn btn--ghost btn--sm" onClick={onStartEdit}>
-            Rename
-          </button>
           {!locked && (
-            <button
-              type="button"
-              className={`btn btn--ghost btn--sm${confirmDeleteId === column.id ? ' btn--sure' : ''}`}
-              disabled={busy}
-              onClick={onRemove}
-            >
-              {confirmDeleteId === column.id ? 'Sure?' : 'Remove'}
-            </button>
+            <>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={onStartEdit}>
+                Rename
+              </button>
+              <button
+                type="button"
+                className={`btn btn--ghost btn--sm${confirmDeleteId === column.id ? ' btn--sure' : ''}`}
+                disabled={busy}
+                onClick={onRemove}
+              >
+                {confirmDeleteId === column.id ? 'Sure?' : 'Remove'}
+              </button>
+            </>
           )}
         </>
       )}
@@ -185,6 +187,12 @@ export function ColumnManager({
   }
 
   async function saveEdit(id: string) {
+    const col = ordered.find((c) => c.id === id);
+    if (col?.role === 'start' || col?.role === 'end') {
+      setError('Not started and Completed cannot be renamed');
+      setEditingId(null);
+      return;
+    }
     const trimmed = editName.trim();
     if (!trimmed) return;
     setBusy(true);
