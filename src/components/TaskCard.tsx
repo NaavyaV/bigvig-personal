@@ -12,8 +12,8 @@ function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: bo
 
   if (category?.color) {
     return {
-      background: `color-mix(in srgb, ${category.color} 22%, #ffffff)`,
-      borderColor: `color-mix(in srgb, ${category.color} 28%, rgba(18, 21, 28, 0.08))`,
+      background: `color-mix(in srgb, ${category.color} 10%, #ffffff)`,
+      borderColor: `color-mix(in srgb, ${category.color} 16%, rgba(18, 21, 28, 0.08))`,
     };
   }
 

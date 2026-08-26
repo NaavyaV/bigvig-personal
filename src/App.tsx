@@ -45,9 +45,9 @@ function BoardApp({ uid }: { uid: string }) {
 
   const stats = useMemo(() => {
     const done = tasks.filter((t) => t.status === endId).length;
-    const backlog = tasks.filter((t) => t.status === startId).length;
+    const backlog = tasks.filter((t) => t.status !== endId).length;
     return { done, backlog };
-  }, [tasks, startId, endId]);
+  }, [tasks, endId]);
 
   const openCreate = useCallback(() => {
     setEditingTask(null);
@@ -129,6 +129,7 @@ function BoardApp({ uid }: { uid: string }) {
               <span className="stat__value">{stats.backlog}</span>
               <span className="stat__label">Backlog</span>
             </div>
+            <DueSchedule tasks={tasks} categories={categories} columns={columns} />
             <div className="stat">
               <span className="stat__value">{stats.done}</span>
               <span className="stat__label">Done</span>
@@ -156,14 +157,6 @@ function BoardApp({ uid }: { uid: string }) {
       </header>
 
       <main className="main">
-        {!loading && !error && (
-          <DueSchedule
-            tasks={tasks}
-            categories={categories}
-            columns={columns}
-            onOpenTask={openEdit}
-          />
-        )}
         {loading && (
           <div className="board board--skeleton" aria-busy="true" aria-label="Loading board">
             {[0, 1, 2].map((i) => (
