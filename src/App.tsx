@@ -117,10 +117,13 @@ function BoardApp({ uid }: { uid: string }) {
           </div>
         </div>
 
-        <div className="topbar__actions">
-          {!loading && !error && (
+        {!loading && !error && (
+          <div className="topbar__center">
             <DueSchedule tasks={tasks} categories={categories} columns={columns} />
-          )}
+          </div>
+        )}
+
+        <div className="topbar__actions">
           <button type="button" className="btn btn--ghost" onClick={() => setColModalOpen(true)}>
             Columns
             {columns.length > 0 && <span className="btn__badge">{columns.length}</span>}

@@ -104,13 +104,26 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 1rem;
   padding: 1.15rem 1.75rem 0.85rem;
   flex-shrink: 0;
   animation: fade-up 0.5s ease both;
   z-index: 40;
+}
+
+.topbar__center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topbar__actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .brand__row {
@@ -188,13 +201,6 @@ button {
   color: var(--muted);
 }
 
-.topbar__actions {
-  display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
 .main {
   flex: 1;
   min-height: 0;
@@ -204,37 +210,23 @@ button {
   animation: fade-up 0.55s ease 0.05s both;
 }
 
-.schedule-launch {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.1rem;
-}
-
-.schedule-launch__hint {
-  font-size: 0.68rem;
-  font-weight: 650;
-  color: var(--muted);
-  text-align: right;
-  line-height: 1.25;
-  max-width: 10rem;
-}
-
 .schedule-overlay {
   z-index: 2500;
-  padding: 0;
-  place-items: stretch;
+  padding: 1rem;
+  place-items: center;
 }
 
 .schedule-sheet {
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  background: var(--bg-1);
+  width: min(100%, 22rem);
+  max-height: min(85vh, 720px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow: var(--shadow-lift);
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  overflow: hidden;
+  animation: fade-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .schedule-sheet__head {
@@ -242,31 +234,27 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.1rem;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
   flex-shrink: 0;
 }
 
 .schedule-sheet__head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.03em;
 }
 
 .schedule-sheet__body {
-  flex: 1;
-  min-height: 0;
   overflow-y: auto;
-  padding: 1rem 1.25rem 1.5rem;
+  overscroll-behavior: contain;
+  padding: 0.85rem 1rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
-  max-width: 40rem;
-  width: 100%;
-  margin: 0 auto;
+  gap: 1rem;
+  max-height: calc(min(85vh, 720px) - 3.5rem);
 }
 
 .agenda__empty {
@@ -499,6 +487,11 @@ button {
   .topbar {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .topbar__center {
+    width: 100%;
+    justify-content: center;
   }
 
   .topbar__actions {

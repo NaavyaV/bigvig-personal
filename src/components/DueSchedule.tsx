@@ -1,13 +1,4 @@
-import {
-  endOfWeek,
-  format,
-  isToday,
-  isTomorrow,
-  isWithinInterval,
-  parseISO,
-  startOfDay,
-  startOfWeek,
-} from 'date-fns';
+import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { daysUntilDue, formatRelativeDue } from '../lib/dates';
@@ -39,29 +30,6 @@ function sectionLabel(iso: string): { label: string; overdue: boolean; today: bo
     return { label: format(d, 'EEE, MMM d'), overdue: true, today: false };
   }
   return { label: format(d, 'EEE, MMM d'), overdue: false, today: false };
-}
-
-function useSchedulePreview(tasks: Task[]) {
-  return useMemo(() => {
-    const dated = tasks.filter((t) => t.dueDate);
-    const dueToday = dated.filter((t) => isToday(parseISO(t.dueDate!))).length;
-    if (dueToday > 0) {
-      return `${dueToday} task${dueToday === 1 ? '' : 's'} due today`;
-    }
-
-    const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const dueThisWeek = dated.filter((t) => {
-      const d = startOfDay(parseISO(t.dueDate!));
-      return isWithinInterval(d, { start: weekStart, end: weekEnd });
-    }).length;
-
-    if (dueThisWeek > 0) {
-      return `${dueThisWeek} task${dueThisWeek === 1 ? '' : 's'} due this week`;
-    }
-    return null;
-  }, [tasks]);
 }
 
 function TaskPreview({
@@ -172,7 +140,6 @@ export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
-  const preview = useSchedulePreview(tasks);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const colMap = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
 
@@ -217,16 +184,9 @@ export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
 
   return (
     <>
-      <div className="schedule-launch">
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => setOpen(true)}
-        >
-          Schedule
-        </button>
-        {preview && <span className="schedule-launch__hint">{preview}</span>}
-      </div>
+      <button type="button" className="btn btn--ghost" onClick={() => setOpen(true)}>
+        Schedule
+      </button>
 
       {open &&
         createPortal(
