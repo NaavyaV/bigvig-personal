@@ -1,5 +1,15 @@
-import { endOfWeek, format, isToday, isTomorrow, isWithinInterval, parseISO, startOfDay, startOfWeek } from 'date-fns';
+import {
+  endOfWeek,
+  format,
+  isToday,
+  isTomorrow,
+  isWithinInterval,
+  parseISO,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns';
 import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { daysUntilDue, formatRelativeDue } from '../lib/dates';
 import { formatRecurrence } from '../lib/recurrence';
 import type { BoardColumn, Category, Task } from '../types';
@@ -72,13 +82,16 @@ function TaskPreview({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="modal-backdrop modal-backdrop--nested" onClick={onClose} role="presentation">
       <div
         className="modal modal--sm task-preview"
@@ -150,7 +163,8 @@ function TaskPreview({
           </dl>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -192,12 +206,21 @@ export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, previewTask]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   return (
     <>
       <div className="schedule-launch">
         <button
           type="button"
-          className="btn btn--ghost schedule-launch__btn"
+          className="btn btn--ghost"
           onClick={() => setOpen(true)}
         >
           Schedule
@@ -205,86 +228,90 @@ export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
         {preview && <span className="schedule-launch__hint">{preview}</span>}
       </div>
 
-      {open && (
-        <div
-          className="modal-backdrop"
-          onClick={() => {
-            if (!previewTask) setOpen(false);
-          }}
-          role="presentation"
-        >
+      {open &&
+        createPortal(
           <div
-            className="modal modal--schedule"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            onClick={(e) => e.stopPropagation()}
+            className="modal-backdrop schedule-overlay"
+            onClick={() => {
+              if (!previewTask) setOpen(false);
+            }}
+            role="presentation"
           >
-            <header className="modal__head">
-              <h2 id={titleId}>Schedule</h2>
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </header>
+            <div
+              className="schedule-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <header className="schedule-sheet__head">
+                <h2 id={titleId}>Schedule</h2>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </header>
 
-            <div className="agenda__body agenda__body--modal">
-              {groups.length === 0 ? (
-                <p className="agenda__empty">No dated tasks yet</p>
-              ) : (
-                groups.map((group) => (
-                  <div
-                    key={group.key}
-                    className={`agenda__day${group.overdue ? ' is-overdue' : ''}${group.today ? ' is-today' : ''}`}
-                  >
-                    <header className="agenda__day-head">
-                      <h3 className="agenda__day-title">{group.label}</h3>
-                      <span className="agenda__day-count">{group.tasks.length}</span>
-                    </header>
-                    <ul className="agenda__list">
-                      {group.tasks.map((task) => {
-                        const cat = task.categoryId ? catMap.get(task.categoryId) : undefined;
-                        const col = colMap.get(task.status);
-                        const done = col?.role === 'end';
-                        return (
-                          <li key={task.id}>
-                            <button
-                              type="button"
-                              className={`agenda__row${done ? ' is-done' : ''}`}
-                              onClick={() => setPreviewTask(task)}
-                            >
-                              <span
-                                className="agenda__dot"
-                                style={{ background: cat?.color ?? 'var(--muted)' }}
-                                aria-hidden="true"
-                              />
-                              <span className="agenda__row-main">
-                                <span className="agenda__row-title">{task.title}</span>
-                                <span className="agenda__row-meta">
-                                  {cat && <span>{cat.name}</span>}
-                                  {col && <span>{col.name}</span>}
-                                  {task.expectedMinutes != null && (
-                                    <span>{formatExpectedMinutes(task.expectedMinutes)}</span>
-                                  )}
-                                  {task.priority && <span>{PRIORITY_LABELS[task.priority]}</span>}
+              <div className="schedule-sheet__body">
+                {groups.length === 0 ? (
+                  <p className="agenda__empty">No dated tasks yet</p>
+                ) : (
+                  groups.map((group) => (
+                    <div
+                      key={group.key}
+                      className={`agenda__day${group.overdue ? ' is-overdue' : ''}${group.today ? ' is-today' : ''}`}
+                    >
+                      <header className="agenda__day-head">
+                        <h3 className="agenda__day-title">{group.label}</h3>
+                        <span className="agenda__day-count">{group.tasks.length}</span>
+                      </header>
+                      <ul className="agenda__list">
+                        {group.tasks.map((task) => {
+                          const cat = task.categoryId ? catMap.get(task.categoryId) : undefined;
+                          const col = colMap.get(task.status);
+                          const done = col?.role === 'end';
+                          return (
+                            <li key={task.id}>
+                              <button
+                                type="button"
+                                className={`agenda__row${done ? ' is-done' : ''}`}
+                                onClick={() => setPreviewTask(task)}
+                              >
+                                <span
+                                  className="agenda__dot"
+                                  style={{ background: cat?.color ?? 'var(--muted)' }}
+                                  aria-hidden="true"
+                                />
+                                <span className="agenda__row-main">
+                                  <span className="agenda__row-title">{task.title}</span>
+                                  <span className="agenda__row-meta">
+                                    {cat && <span>{cat.name}</span>}
+                                    {col && <span>{col.name}</span>}
+                                    {task.expectedMinutes != null && (
+                                      <span>{formatExpectedMinutes(task.expectedMinutes)}</span>
+                                    )}
+                                    {task.priority && (
+                                      <span>{PRIORITY_LABELS[task.priority]}</span>
+                                    )}
+                                  </span>
                                 </span>
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))
-              )}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {previewTask && (
         <TaskPreview

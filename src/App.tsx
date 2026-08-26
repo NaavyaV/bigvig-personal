@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAuth } from './auth/AuthProvider';
 import { AuthScreen } from './components/AuthScreen';
 import { Board } from './components/Board';
@@ -42,12 +42,6 @@ function BoardApp({ uid }: { uid: string }) {
 
   const startId = getStartColumnId(columns);
   const endId = getEndColumnId(columns);
-
-  const stats = useMemo(() => {
-    const done = tasks.filter((t) => t.status === endId).length;
-    const backlog = tasks.filter((t) => t.status !== endId).length;
-    return { done, backlog };
-  }, [tasks, endId]);
 
   const openCreate = useCallback(() => {
     setEditingTask(null);
@@ -123,21 +117,10 @@ function BoardApp({ uid }: { uid: string }) {
           </div>
         </div>
 
-        {!loading && !error && (
-          <div className="stat-strip" aria-label="Board summary">
-            <div className="stat">
-              <span className="stat__value">{stats.backlog}</span>
-              <span className="stat__label">Backlog</span>
-            </div>
-            <DueSchedule tasks={tasks} categories={categories} columns={columns} />
-            <div className="stat">
-              <span className="stat__value">{stats.done}</span>
-              <span className="stat__label">Done</span>
-            </div>
-          </div>
-        )}
-
         <div className="topbar__actions">
+          {!loading && !error && (
+            <DueSchedule tasks={tasks} categories={categories} columns={columns} />
+          )}
           <button type="button" className="btn btn--ghost" onClick={() => setColModalOpen(true)}>
             Columns
             {columns.length > 0 && <span className="btn__badge">{columns.length}</span>}
