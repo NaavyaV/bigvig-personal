@@ -725,6 +725,35 @@ button {
   min-height: 1.4rem;
 }
 
+.task-card__trailing {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 58%;
+}
+
+.task-card__relative {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.task-card__relative.is-today {
+  color: var(--today);
+}
+
+.task-card__relative.is-overdue {
+  color: var(--overdue);
+}
+
 .task-card__spacer {
   flex: 1;
 }

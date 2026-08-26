@@ -22,35 +22,48 @@ export function daysUntilDue(dueDate: string, from: Date = new Date()): number {
   return differenceInCalendarDays(startOfDay(parseISO(dueDate)), startOfDay(from));
 }
 
-function withAbsolute(relative: string, dueDate: string): string {
-  const abs = format(parseISO(dueDate), 'MMM d');
-  return `${relative}, on ${abs}`;
+export function formatAbsoluteDue(dueDate: string): string {
+  return format(parseISO(dueDate), 'MMM d');
 }
 
-/** Human relative due label for cards. */
+/** Human relative + absolute due labels for cards. */
 export function formatRelativeDue(
   dueDate: string,
   opts?: { completed?: boolean },
-): { label: string; overdue: boolean; today: boolean } {
-  const d = parseISO(dueDate);
+): {
+  relative: string | null;
+  absolute: string;
+  /** Combined label for previews / lists */
+  label: string;
+  overdue: boolean;
+  today: boolean;
+} {
+  const absolute = formatAbsoluteDue(dueDate);
   const days = daysUntilDue(dueDate);
 
   if (opts?.completed) {
-    return { label: `Was due on ${format(d, 'MMM d')}`, overdue: false, today: false };
-  }
-
-  if (isToday(d)) {
-    return { label: withAbsolute('Due today', dueDate), overdue: false, today: true };
-  }
-  if (isTomorrow(d)) {
-    return { label: withAbsolute('Due tomorrow', dueDate), overdue: false, today: false };
-  }
-  if (isYesterday(d)) {
-    return { label: withAbsolute('Due yesterday', dueDate), overdue: true, today: false };
+    return {
+      relative: null,
+      absolute,
+      label: absolute,
+      overdue: false,
+      today: false,
+    };
   }
 
   let relative: string;
-  if (days > 1 && days < 7) {
+  let overdue = false;
+  let today = false;
+
+  if (isToday(parseISO(dueDate))) {
+    relative = 'Due today';
+    today = true;
+  } else if (isTomorrow(parseISO(dueDate))) {
+    relative = 'Due tomorrow';
+  } else if (isYesterday(parseISO(dueDate))) {
+    relative = 'Due yesterday';
+    overdue = true;
+  } else if (days > 1 && days < 7) {
     relative = `Due in ${days} days`;
   } else if (days === 7) {
     relative = 'Due in 1 week';
@@ -67,8 +80,14 @@ export function formatRelativeDue(
     if (overdueBy === 7) relative = '1 week overdue';
     else if (overdueBy > 1) relative = `${overdueBy} days overdue`;
     else relative = '1 day overdue';
-    return { label: withAbsolute(relative, dueDate), overdue: true, today: false };
+    overdue = true;
   }
 
-  return { label: withAbsolute(relative, dueDate), overdue: false, today: false };
+  return {
+    relative,
+    absolute,
+    label: relative,
+    overdue,
+    today,
+  };
 }

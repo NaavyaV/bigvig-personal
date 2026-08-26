@@ -129,6 +129,13 @@ export function TaskCardPreview({
           <span className="task-card__spacer" />
         )}
         {condensed && <h3 className="task-card__title">{task.title}</h3>}
+        {due?.relative && !condensed && (
+          <span
+            className={`task-card__relative${due.overdue ? ' is-overdue' : ''}${due.today ? ' is-today' : ''}`}
+          >
+            {due.relative}
+          </span>
+        )}
       </div>
       {!condensed && <h3 className="task-card__title">{task.title}</h3>}
       {!condensed && task.description ? <TaskDescription text={task.description} /> : null}
@@ -138,7 +145,7 @@ export function TaskCardPreview({
             <span
               className={`task-card__due${due.overdue ? ' is-overdue' : ''}${due.today ? ' is-today' : ''}`}
             >
-              {due.label}
+              {due.absolute}
             </span>
           )}
           {task.expectedMinutes != null && (
@@ -297,66 +304,75 @@ export function TaskCard({
 
           {condensed && <h3 className="task-card__title">{task.title}</h3>}
 
-          <div className="task-card__menu">
-            <button
-              ref={moreBtnRef}
-              type="button"
-              className="task-card__more"
-              aria-label="Task actions"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-controls={menuId}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((o) => !o);
-              }}
-            >
-              <span aria-hidden="true">⋯</span>
-            </button>
+          <div className="task-card__trailing">
+            {due?.relative && !condensed && (
+              <span
+                className={`task-card__relative${due.overdue ? ' is-overdue' : ''}${due.today ? ' is-today' : ''}`}
+              >
+                {due.relative}
+              </span>
+            )}
+            <div className="task-card__menu">
+              <button
+                ref={moreBtnRef}
+                type="button"
+                className="task-card__more"
+                aria-label="Task actions"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-controls={menuId}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((o) => !o);
+                }}
+              >
+                <span aria-hidden="true">⋯</span>
+              </button>
 
-            {menuOpen &&
-              menuPos &&
-              createPortal(
-                <div
-                  ref={menuRef}
-                  className="task-menu task-menu--portal"
-                  id={menuId}
-                  role="menu"
-                  style={{ top: menuPos.top, left: menuPos.left }}
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onEdit(task);
-                    }}
+              {menuOpen &&
+                menuPos &&
+                createPortal(
+                  <div
+                    ref={menuRef}
+                    className="task-menu task-menu--portal"
+                    id={menuId}
+                    role="menu"
+                    style={{ top: menuPos.top, left: menuPos.left }}
                   >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={`task-menu__danger${confirmDelete ? ' is-confirm' : ''}`}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!confirmDelete) {
-                        setConfirmDelete(true);
-                        return;
-                      }
-                      setMenuOpen(false);
-                      onDelete(task);
-                    }}
-                  >
-                    {confirmDelete ? 'Sure?' : 'Delete'}
-                  </button>
-                </div>,
-                document.body,
-              )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        onEdit(task);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={`task-menu__danger${confirmDelete ? ' is-confirm' : ''}`}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!confirmDelete) {
+                          setConfirmDelete(true);
+                          return;
+                        }
+                        setMenuOpen(false);
+                        onDelete(task);
+                      }}
+                    >
+                      {confirmDelete ? 'Sure?' : 'Delete'}
+                    </button>
+                  </div>,
+                  document.body,
+                )}
+            </div>
           </div>
         </div>
 
@@ -380,7 +396,7 @@ export function TaskCard({
                 <span
                   className={`task-card__due${due.overdue ? ' is-overdue' : ''}${due.today ? ' is-today' : ''}`}
                 >
-                  {due.label}
+                  {due.absolute}
                 </span>
               )}
               {task.expectedMinutes != null && (
