@@ -27,6 +27,66 @@ function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: bo
   return {};
 }
 
+function TaskDescription({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const check = () => {
+      if (expanded) return;
+      setOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, expanded]);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [text]);
+
+  return (
+    <div className={`task-card__desc-wrap${expanded ? ' is-open' : ''}`}>
+      <p
+        ref={ref}
+        className={`task-card__desc${expanded ? ' is-expanded' : ''}`}
+      >
+        {text}
+      </p>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          className="task-card__desc-toggle"
+          aria-expanded={expanded}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          <span>{expanded ? 'Show less' : 'Show more'}</span>
+          <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
+            <path
+              d="M2.5 4.5 L6 8 L9.5 4.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface TaskCardPreviewProps {
   task: Task;
   category?: Category;
@@ -71,7 +131,7 @@ export function TaskCardPreview({
         {condensed && <h3 className="task-card__title">{task.title}</h3>}
       </div>
       {!condensed && <h3 className="task-card__title">{task.title}</h3>}
-      {!condensed && task.description ? <p className="task-card__desc">{task.description}</p> : null}
+      {!condensed && task.description ? <TaskDescription text={task.description} /> : null}
       {!condensed && (
         <div className="task-card__meta">
           {due && (
@@ -313,7 +373,7 @@ export function TaskCard({
               </span>
             )}
 
-            {task.description ? <p className="task-card__desc">{task.description}</p> : null}
+            {task.description ? <TaskDescription text={task.description} /> : null}
 
             <div className="task-card__meta">
               {due && (
