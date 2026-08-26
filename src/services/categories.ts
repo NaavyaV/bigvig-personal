@@ -1,8 +1,6 @@
 import {
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   onSnapshot,
   orderBy,
   query,
@@ -10,10 +8,8 @@ import {
   updateDoc,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '../firebase';
 import type { Category } from '../types';
-
-const categoriesCol = collection(db, 'categories');
+import { userCategoriesCol, userCategoryDoc } from './paths';
 
 function mapCategory(id: string, data: Record<string, unknown>): Category {
   return {
@@ -26,10 +22,11 @@ function mapCategory(id: string, data: Record<string, unknown>): Category {
 }
 
 export function subscribeCategories(
+  uid: string,
   onChange: (categories: Category[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  const q = query(categoriesCol, orderBy('order', 'asc'));
+  const q = query(userCategoriesCol(uid), orderBy('order', 'asc'));
   return onSnapshot(
     q,
     (snap) => {
@@ -39,9 +36,14 @@ export function subscribeCategories(
   );
 }
 
-export async function createCategory(name: string, color: string, order: number): Promise<string> {
+export async function createCategory(
+  uid: string,
+  name: string,
+  color: string,
+  order: number,
+): Promise<string> {
   const now = new Date().toISOString();
-  const ref = await addDoc(categoriesCol, {
+  const ref = await addDoc(userCategoriesCol(uid), {
     name: name.trim(),
     color,
     order,
@@ -52,12 +54,13 @@ export async function createCategory(name: string, color: string, order: number)
 }
 
 export async function updateCategory(
+  uid: string,
   id: string,
   patch: Partial<Pick<Category, 'name' | 'color' | 'order'>>,
 ): Promise<void> {
-  await updateDoc(doc(db, 'categories', id), patch);
+  await updateDoc(userCategoryDoc(uid, id), patch);
 }
 
-export async function deleteCategory(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'categories', id));
+export async function deleteCategory(uid: string, id: string): Promise<void> {
+  await deleteDoc(userCategoryDoc(uid, id));
 }

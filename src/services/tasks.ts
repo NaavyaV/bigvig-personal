@@ -1,8 +1,6 @@
 import {
   addDoc,
-  collection,
   deleteDoc,
-  doc,
   onSnapshot,
   orderBy,
   query,
@@ -14,8 +12,8 @@ import {
 import { db } from '../firebase';
 import { nextDueDate, shouldEndOnComplete } from '../lib/recurrence';
 import type { Recurrence, Task, TaskInput, TaskPriority, TaskStatus } from '../types';
-
-const tasksCol = collection(db, 'tasks');
+import { DEFAULT_COLUMN_IDS } from '../types';
+import { userTaskDoc, userTasksCol } from './paths';
 
 function mapTask(id: string, data: Record<string, unknown>): Task {
   const rawRecurrence = data.recurrence as Recurrence | null | undefined;
@@ -29,6 +27,12 @@ function mapTask(id: string, data: Record<string, unknown>): Task {
       }
     : null;
 
+  const rawExpected = data.expectedMinutes;
+  const expectedMinutes =
+    typeof rawExpected === 'number' && Number.isFinite(rawExpected) && rawExpected > 0
+      ? Math.round(rawExpected / 15) * 15
+      : null;
+
   return {
     id,
     title: String(data.title ?? ''),
@@ -36,7 +40,8 @@ function mapTask(id: string, data: Record<string, unknown>): Task {
     dueDate: (data.dueDate as string | null) ?? null,
     categoryId: (data.categoryId as string | null) ?? null,
     priority: (data.priority as TaskPriority | null) ?? null,
-    status: (data.status as TaskStatus) ?? 'not_started',
+    expectedMinutes,
+    status: (data.status as TaskStatus) ?? DEFAULT_COLUMN_IDS.start,
     order: Number(data.order ?? 0),
     isRecurring: Boolean(data.isRecurring),
     recurrence,
@@ -46,8 +51,12 @@ function mapTask(id: string, data: Record<string, unknown>): Task {
   };
 }
 
-export function subscribeTasks(onChange: (tasks: Task[]) => void, onError?: (e: Error) => void): Unsubscribe {
-  const q = query(tasksCol, orderBy('order', 'asc'));
+export function subscribeTasks(
+  uid: string,
+  onChange: (tasks: Task[]) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  const q = query(userTasksCol(uid), orderBy('order', 'asc'));
   return onSnapshot(
     q,
     (snap) => {
@@ -57,9 +66,9 @@ export function subscribeTasks(onChange: (tasks: Task[]) => void, onError?: (e: 
   );
 }
 
-export async function createTask(input: TaskInput): Promise<string> {
+export async function createTask(uid: string, input: TaskInput): Promise<string> {
   const now = new Date().toISOString();
-  const ref = await addDoc(tasksCol, {
+  const ref = await addDoc(userTasksCol(uid), {
     ...input,
     completedAtIso: null,
     createdAtIso: now,
@@ -70,7 +79,11 @@ export async function createTask(input: TaskInput): Promise<string> {
   return ref.id;
 }
 
-export async function updateTask(id: string, patch: Partial<TaskInput> & { completedAt?: string | null }): Promise<void> {
+export async function updateTask(
+  uid: string,
+  id: string,
+  patch: Partial<TaskInput> & { completedAt?: string | null },
+): Promise<void> {
   const { completedAt, ...rest } = patch;
   const payload: Record<string, unknown> = {
     ...rest,
@@ -80,31 +93,37 @@ export async function updateTask(id: string, patch: Partial<TaskInput> & { compl
   if (completedAt !== undefined) {
     payload.completedAtIso = completedAt;
   }
-  await updateDoc(doc(db, 'tasks', id), payload);
+  await updateDoc(userTaskDoc(uid, id), payload);
 }
 
-export async function deleteTask(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'tasks', id));
+export async function deleteTask(uid: string, id: string): Promise<void> {
+  await deleteDoc(userTaskDoc(uid, id));
 }
 
-/**
- * Move a task between columns. Recurring tasks that land in Completed
- * stay completed, and a fresh Not started copy is created for the next due date.
- */
 export async function moveTask(
+  uid: string,
   task: Task,
   newStatus: TaskStatus,
   orderForTarget: number,
-  orderForNotStarted?: number,
+  options?: {
+    orderForNotStarted?: number;
+    isCompletedColumn?: boolean;
+    startColumnId?: string;
+  },
 ): Promise<{ recurred: boolean; ended: boolean }> {
-  if (newStatus === 'completed' && task.isRecurring && task.recurrence) {
+  const isCompleted =
+    options?.isCompletedColumn ??
+    (newStatus === DEFAULT_COLUMN_IDS.end || newStatus === 'completed');
+  const startId = options?.startColumnId ?? DEFAULT_COLUMN_IDS.start;
+
+  if (isCompleted && task.isRecurring && task.recurrence) {
     const recurrence = task.recurrence;
     const nextCount = (recurrence.completedCount ?? 0) + 1;
     const hitOccurrenceCap = shouldEndOnComplete(recurrence);
     const next = hitOccurrenceCap ? null : nextDueDate(task.dueDate, recurrence);
 
-    await updateTask(task.id, {
-      status: 'completed',
+    await updateTask(uid, task.id, {
+      status: newStatus,
       order: orderForTarget,
       completedAt: new Date().toISOString(),
       isRecurring: true,
@@ -115,35 +134,37 @@ export async function moveTask(
       return { recurred: false, ended: true };
     }
 
-    await createTask({
+    await createTask(uid, {
       title: task.title,
       description: task.description,
       dueDate: next,
       categoryId: task.categoryId,
       priority: task.priority,
-      status: 'not_started',
-      order: orderForNotStarted ?? 0,
+      expectedMinutes: task.expectedMinutes,
+      status: startId,
+      order: options?.orderForNotStarted ?? 0,
       isRecurring: true,
       recurrence: { ...recurrence, completedCount: nextCount },
     });
     return { recurred: true, ended: false };
   }
 
-  await updateTask(task.id, {
+  await updateTask(uid, task.id, {
     status: newStatus,
     order: orderForTarget,
-    completedAt: newStatus === 'completed' ? new Date().toISOString() : null,
+    completedAt: isCompleted ? new Date().toISOString() : null,
   });
   return { recurred: false, ended: false };
 }
 
 export async function reorderTasks(
+  uid: string,
   updates: { id: string; order: number; status: TaskStatus }[],
 ): Promise<void> {
   const batch = writeBatch(db);
   const now = new Date().toISOString();
   for (const u of updates) {
-    batch.update(doc(db, 'tasks', u.id), {
+    batch.update(userTaskDoc(uid, u.id), {
       order: u.order,
       status: u.status,
       updatedAtIso: now,
@@ -157,4 +178,24 @@ export function nextOrder(tasks: Task[], status: TaskStatus): number {
   const inCol = tasks.filter((t) => t.status === status);
   if (inCol.length === 0) return 0;
   return Math.max(...inCol.map((t) => t.order)) + 1;
+}
+
+export async function reassignTasksFromColumn(
+  uid: string,
+  fromStatus: TaskStatus,
+  toStatus: TaskStatus,
+  tasks: Task[],
+): Promise<void> {
+  const affected = tasks.filter((t) => t.status === fromStatus);
+  if (affected.length === 0) return;
+  const base = nextOrder(tasks, toStatus);
+  await Promise.all(
+    affected.map((t, i) =>
+      updateTask(uid, t.id, {
+        status: toStatus,
+        order: base + i,
+        completedAt: null,
+      }),
+    ),
+  );
 }

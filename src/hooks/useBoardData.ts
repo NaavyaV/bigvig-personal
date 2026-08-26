@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { subscribeCategories } from '../services/categories';
+import { subscribeColumns } from '../services/columns';
 import { subscribeTasks } from '../services/tasks';
-import type { Category, Task } from '../types';
+import type { BoardColumn, Category, Task } from '../types';
 
-export function useBoardData() {
+export function useBoardData(uid: string | undefined) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
@@ -17,51 +19,76 @@ export function useBoardData() {
   }, []);
 
   useEffect(() => {
+    if (!uid) {
+      setTasks([]);
+      setCategories([]);
+      setColumns([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     let tasksReady = false;
     let catsReady = false;
+    let colsReady = false;
     let cancelled = false;
 
+    setLoading(true);
+    setError(null);
+
     const maybeDone = () => {
-      if (!cancelled && tasksReady && catsReady) {
+      if (!cancelled && tasksReady && catsReady && colsReady) {
         setLoading(false);
         setError(null);
       }
     };
 
+    const fail = (e: Error) => {
+      if (cancelled) return;
+      setError(e.message);
+      setLoading(false);
+    };
+
     const unsubTasks = subscribeTasks(
+      uid,
       (t) => {
         if (cancelled) return;
         setTasks(t);
         tasksReady = true;
         maybeDone();
       },
-      (e) => {
-        if (cancelled) return;
-        setError(e.message);
-        setLoading(false);
-      },
+      fail,
     );
 
     const unsubCats = subscribeCategories(
+      uid,
       (c) => {
         if (cancelled) return;
         setCategories(c);
         catsReady = true;
         maybeDone();
       },
-      (e) => {
+      fail,
+    );
+
+    const unsubCols = subscribeColumns(
+      uid,
+      (c) => {
         if (cancelled) return;
-        setError(e.message);
-        setLoading(false);
+        setColumns(c);
+        colsReady = true;
+        maybeDone();
       },
+      fail,
     );
 
     return () => {
       cancelled = true;
       unsubTasks();
       unsubCats();
+      unsubCols();
     };
-  }, [retryToken]);
+  }, [uid, retryToken]);
 
-  return { tasks, categories, loading, error, retry };
+  return { tasks, categories, columns, loading, error, retry };
 }

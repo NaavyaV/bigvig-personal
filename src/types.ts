@@ -1,4 +1,7 @@
-export type TaskStatus = 'not_started' | 'in_progress' | 'completed';
+export type ColumnRole = 'start' | 'middle' | 'end';
+
+/** Board column id — defaults match legacy statuses for existing data */
+export type TaskStatus = string;
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
@@ -16,6 +19,14 @@ export interface Recurrence {
   completedCount: number;
 }
 
+export interface BoardColumn {
+  id: string;
+  name: string;
+  order: number;
+  role: ColumnRole;
+  createdAt: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -31,6 +42,8 @@ export interface Task {
   dueDate: string | null;
   categoryId: string | null;
   priority: TaskPriority | null;
+  /** Expected effort in minutes (multiples of 15), or null if unset */
+  expectedMinutes: number | null;
   status: TaskStatus;
   order: number;
   isRecurring: boolean;
@@ -42,13 +55,16 @@ export interface Task {
 
 export type TaskInput = Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'completedAt'>;
 
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-  not_started: 'Not started',
-  in_progress: 'In progress',
-  completed: 'Completed',
-};
+export const DEFAULT_COLUMN_IDS = {
+  start: 'not_started',
+  middle: 'in_progress',
+  end: 'completed',
+} as const;
 
-export const STATUSES: TaskStatus[] = ['not_started', 'in_progress', 'completed'];
+export const MAX_BOARD_COLUMNS = 5;
+
+export const EXPECTED_TIME_STEP = 15;
+export const EXPECTED_TIME_MAX = 480; // 8 hours
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   low: 'Low',
@@ -83,3 +99,25 @@ export const CATEGORY_COLORS = [
   '#DB2777', // pink
   '#EA580C', // orange
 ] as const;
+
+export function formatExpectedMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} mins`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h}hr`;
+  return `${h}hr ${m} mins`;
+}
+
+export function isCompletedStatus(status: TaskStatus, columns: BoardColumn[]): boolean {
+  const col = columns.find((c) => c.id === status);
+  if (col) return col.role === 'end';
+  return status === DEFAULT_COLUMN_IDS.end;
+}
+
+export function getStartColumnId(columns: BoardColumn[]): string {
+  return columns.find((c) => c.role === 'start')?.id ?? DEFAULT_COLUMN_IDS.start;
+}
+
+export function getEndColumnId(columns: BoardColumn[]): string {
+  return columns.find((c) => c.role === 'end')?.id ?? DEFAULT_COLUMN_IDS.end;
+}

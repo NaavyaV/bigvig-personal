@@ -1,32 +1,28 @@
 import { useDroppable } from '@dnd-kit/core';
-import type { Category, Task, TaskStatus } from '../types';
-import { STATUS_LABELS } from '../types';
+import type { BoardColumn, Category, Task } from '../types';
 import { TaskCard } from './TaskCard';
 
 interface ColumnProps {
-  status: TaskStatus;
+  column: BoardColumn;
   tasks: Task[];
   categories: Category[];
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
 }
 
-const COLUMN_HINT: Record<TaskStatus, string> = {
-  not_started: 'Ready to pick up',
-  in_progress: 'Actively working',
-  completed: 'Done — collapsed by default',
-};
-
-export function Column({ status, tasks, categories, onEdit, onDelete }: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+export function Column({ column, tasks, categories, onEdit, onDelete }: ColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const catMap = new Map(categories.map((c) => [c.id, c]));
+  const isDone = column.role === 'end';
 
   return (
-    <section className={`column column--${status}${isOver ? ' is-over' : ''}`}>
+    <section
+      className={`column column--${column.role}${isOver ? ' is-over' : ''}`}
+      data-column={column.id}
+    >
       <header className="column__head">
         <div className="column__heading">
-          <h2 className="column__title">{STATUS_LABELS[status]}</h2>
-          <p className="column__hint">{COLUMN_HINT[status]}</p>
+          <h2 className="column__title">{column.name}</h2>
         </div>
         <span className="column__count" aria-label={`${tasks.length} tasks`}>
           {tasks.length}
@@ -45,6 +41,7 @@ export function Column({ status, tasks, categories, onEdit, onDelete }: ColumnPr
               key={task.id}
               task={task}
               category={task.categoryId ? catMap.get(task.categoryId) : undefined}
+              isCompletedColumn={isDone}
               onEdit={onEdit}
               onDelete={onDelete}
             />

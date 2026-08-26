@@ -1,6 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useAuth } from './auth/AuthProvider';
+import { AuthScreen } from './components/AuthScreen';
 import { Board } from './components/Board';
 import { CategoryManager } from './components/CategoryManager';
+import { ColumnManager } from './components/ColumnManager';
+import { ProfileMenu } from './components/ProfileMenu';
 import { TaskModal } from './components/TaskModal';
 import { useBoardData } from './hooks/useBoardData';
 import { useToast } from './hooks/useToast';
@@ -9,24 +13,42 @@ import {
   deleteCategory,
   updateCategory,
 } from './services/categories';
-import { createTask, deleteTask, moveTask, nextOrder, updateTask } from './services/tasks';
+import {
+  createColumn,
+  deleteColumn,
+  reorderColumns,
+  updateColumn,
+} from './services/columns';
+import {
+  createTask,
+  deleteTask,
+  moveTask,
+  nextOrder,
+  reassignTasksFromColumn,
+  updateTask,
+} from './services/tasks';
 import type { Task, TaskInput } from './types';
+import { getEndColumnId, getStartColumnId } from './types';
 
-export default function App() {
-  const { tasks, categories, loading, error, retry } = useBoardData();
+function BoardApp({ uid }: { uid: string }) {
+  const { tasks, categories, columns, loading, error, retry } = useBoardData(uid);
   const { message, toast } = useToast();
 
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
+  const [colModalOpen, setColModalOpen] = useState(false);
+
+  const startId = getStartColumnId(columns);
+  const endId = getEndColumnId(columns);
 
   const stats = useMemo(() => {
     const total = tasks.length;
-    const done = tasks.filter((t) => t.status === 'completed').length;
-    const active = tasks.filter((t) => t.status === 'in_progress').length;
-    const backlog = tasks.filter((t) => t.status === 'not_started').length;
+    const done = tasks.filter((t) => t.status === endId).length;
+    const backlog = tasks.filter((t) => t.status === startId).length;
+    const active = Math.max(0, total - done - backlog);
     return { total, done, active, backlog };
-  }, [tasks]);
+  }, [tasks, startId, endId]);
 
   const openCreate = useCallback(() => {
     setEditingTask(null);
@@ -44,29 +66,34 @@ export default function App() {
         const existing = tasks.find((t) => t.id === id);
         if (
           existing &&
-          input.status === 'completed' &&
-          existing.status !== 'completed' &&
+          input.status === endId &&
+          existing.status !== endId &&
           input.isRecurring &&
           input.recurrence
         ) {
           const result = await moveTask(
+            uid,
             { ...existing, ...input, id: existing.id },
-            'completed',
-            nextOrder(tasks, 'completed'),
-            nextOrder(tasks, 'not_started'),
+            endId,
+            nextOrder(tasks, endId),
+            {
+              orderForNotStarted: nextOrder(tasks, startId),
+              isCompletedColumn: true,
+              startColumnId: startId,
+            },
           );
           if (result.recurred) toast('Recurring task reset for the next occurrence');
           else if (result.ended) toast('Recurrence ended — task marked complete');
           else toast('Task updated');
         } else {
-          await updateTask(id, {
+          await updateTask(uid, id, {
             ...input,
-            completedAt: input.status === 'completed' ? new Date().toISOString() : null,
+            completedAt: input.status === endId ? new Date().toISOString() : null,
           });
           toast('Task updated');
         }
       } else {
-        await createTask(input);
+        await createTask(uid, input);
         toast('Task created');
       }
     } catch (e) {
@@ -77,7 +104,7 @@ export default function App() {
 
   async function handleDeleteTask(id: string) {
     try {
-      await deleteTask(id);
+      await deleteTask(uid, id);
       toast('Task deleted');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not delete task');
@@ -95,7 +122,6 @@ export default function App() {
             <span className="brand__glyph" aria-hidden="true" />
             <p className="brand__mark">BigVig&apos;s life board :D</p>
           </div>
-          <p className="brand__sub">Personal flow · keep moving</p>
         </div>
 
         {!loading && !error && (
@@ -116,6 +142,10 @@ export default function App() {
         )}
 
         <div className="topbar__actions">
+          <button type="button" className="btn btn--ghost" onClick={() => setColModalOpen(true)}>
+            Columns
+            {columns.length > 0 && <span className="btn__badge">{columns.length}</span>}
+          </button>
           <button type="button" className="btn btn--ghost" onClick={() => setCatModalOpen(true)}>
             Categories
             {categories.length > 0 && <span className="btn__badge">{categories.length}</span>}
@@ -126,6 +156,7 @@ export default function App() {
             </span>
             New task
           </button>
+          <ProfileMenu />
         </div>
       </header>
 
@@ -152,8 +183,10 @@ export default function App() {
         )}
         {!loading && !error && (
           <Board
+            uid={uid}
             tasks={tasks}
             categories={categories}
+            columns={columns}
             onEdit={openEdit}
             onDelete={(task) => void handleDeleteTask(task.id)}
             onToast={toast}
@@ -165,7 +198,8 @@ export default function App() {
         open={taskModalOpen}
         task={editingTask}
         categories={categories}
-        nextOrder={nextOrder(tasks, editingTask?.status ?? 'not_started')}
+        columns={columns}
+        nextOrder={nextOrder(tasks, editingTask?.status ?? startId)}
         onClose={() => setTaskModalOpen(false)}
         onSave={handleSaveTask}
         onDelete={handleDeleteTask}
@@ -176,18 +210,50 @@ export default function App() {
         categories={categories}
         onClose={() => setCatModalOpen(false)}
         onCreate={async (name, color) => {
-          await createCategory(name, color, categories.length);
+          await createCategory(uid, name, color, categories.length);
           toast('Category added');
         }}
         onUpdate={async (id, patch) => {
-          await updateCategory(id, patch);
+          await updateCategory(uid, id, patch);
           toast('Category updated');
         }}
         onDelete={async (id) => {
-          await deleteCategory(id);
+          await deleteCategory(uid, id);
           const affected = tasks.filter((t) => t.categoryId === id);
-          await Promise.all(affected.map((t) => updateTask(t.id, { categoryId: null })));
+          await Promise.all(affected.map((t) => updateTask(uid, t.id, { categoryId: null })));
           toast('Category removed');
+        }}
+      />
+
+      <ColumnManager
+        open={colModalOpen}
+        columns={columns}
+        onClose={() => setColModalOpen(false)}
+        onCreate={async (name) => {
+          const insertOrder = columns.length;
+          const id = await createColumn(uid, name, insertOrder);
+          await reorderColumns(uid, [
+            ...columns,
+            { id, name, order: insertOrder, role: 'middle', createdAt: '' },
+          ]);
+          toast('Column added');
+        }}
+        onRename={async (id, name) => {
+          await updateColumn(uid, id, { name });
+          toast('Column renamed');
+        }}
+        onDelete={async (id) => {
+          await reassignTasksFromColumn(uid, id, startId, tasks);
+          await deleteColumn(uid, id);
+          const remaining = columns.filter((c) => c.id !== id);
+          await reorderColumns(
+            uid,
+            remaining.map((c, i) => ({ ...c, order: i })),
+          );
+          toast('Column removed');
+        }}
+        onReorder={async (ordered) => {
+          await reorderColumns(uid, ordered);
         }}
       />
 
@@ -198,4 +264,23 @@ export default function App() {
       )}
     </div>
   );
+}
+
+export default function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="auth-screen">
+        <div className="atmosphere" aria-hidden="true" />
+        <div className="auth-loading" aria-busy="true">
+          Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <AuthScreen />;
+
+  return <BoardApp uid={user.uid} />;
 }

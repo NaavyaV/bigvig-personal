@@ -7,22 +7,27 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { moveTask } from '../services/tasks';
-import type { Category, Task, TaskStatus } from '../types';
-import { STATUSES } from '../types';
+import type { BoardColumn, Category, Task, TaskStatus } from '../types';
+import { getEndColumnId, getStartColumnId } from '../types';
 import { Column } from './Column';
 
 interface BoardProps {
+  uid: string;
   tasks: Task[];
   categories: Category[];
+  columns: BoardColumn[];
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onToast: (msg: string) => void;
 }
 
-export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardProps) {
+export function Board({ uid, tasks, categories, columns, onEdit, onDelete, onToast }: BoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const startId = getStartColumnId(columns);
+  const endId = getEndColumnId(columns);
+  const columnIds = useMemo(() => new Set(columns.map((c) => c.id)), [columns]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -31,19 +36,21 @@ export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardPro
   );
 
   const byStatus = useMemo(() => {
-    const map: Record<TaskStatus, Task[]> = {
-      not_started: [],
-      in_progress: [],
-      completed: [],
-    };
+    const map = new Map<string, Task[]>();
+    for (const col of columns) map.set(col.id, []);
     for (const t of tasks) {
-      map[t.status]?.push(t);
+      const list = map.get(t.status);
+      if (list) list.push(t);
+      else {
+        // Orphan status → start column bucket
+        map.get(startId)?.push(t);
+      }
     }
-    for (const s of STATUSES) {
-      map[s].sort((a, b) => a.order - b.order);
+    for (const list of map.values()) {
+      list.sort((a, b) => a.order - b.order);
     }
     return map;
-  }, [tasks]);
+  }, [tasks, columns, startId]);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
@@ -64,8 +71,8 @@ export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardPro
     const overId = String(over.id);
     let newStatus: TaskStatus | null = null;
 
-    if (STATUSES.includes(overId as TaskStatus)) {
-      newStatus = overId as TaskStatus;
+    if (columnIds.has(overId)) {
+      newStatus = overId;
     } else {
       const overTask = tasks.find((t) => t.id === overId);
       if (overTask) newStatus = overTask.status;
@@ -75,11 +82,15 @@ export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardPro
 
     const peers = tasks.filter((t) => t.status === newStatus && t.id !== task.id);
     const newOrder = peers.length === 0 ? 0 : Math.max(...peers.map((t) => t.order)) + 1;
-    const nsPeers = tasks.filter((t) => t.status === 'not_started' && t.id !== task.id);
+    const nsPeers = tasks.filter((t) => t.status === startId && t.id !== task.id);
     const nsOrder = nsPeers.length === 0 ? 0 : Math.max(...nsPeers.map((t) => t.order)) + 1;
 
     try {
-      const result = await moveTask(task, newStatus, newOrder, nsOrder);
+      const result = await moveTask(uid, task, newStatus, newOrder, {
+        orderForNotStarted: nsOrder,
+        isCompletedColumn: newStatus === endId,
+        startColumnId: startId,
+      });
       if (result.recurred) {
         onToast('Completed — next occurrence added to Not started');
       } else if (result.ended) {
@@ -90,6 +101,8 @@ export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardPro
     }
   }
 
+  const count = columns.length;
+
   return (
     <DndContext
       sensors={sensors}
@@ -98,12 +111,15 @@ export function Board({ tasks, categories, onEdit, onDelete, onToast }: BoardPro
       onDragEnd={handleDragEnd}
       onDragCancel={clearDrag}
     >
-      <div className={`board${activeId ? ' board--dragging' : ''}`}>
-        {STATUSES.map((status) => (
+      <div
+        className={`board${activeId ? ' board--dragging' : ''}`}
+        style={{ '--col-count': String(count) } as CSSProperties}
+      >
+        {columns.map((column) => (
           <Column
-            key={status}
-            status={status}
-            tasks={byStatus[status]}
+            key={column.id}
+            column={column}
+            tasks={byStatus.get(column.id) ?? []}
             categories={categories}
             onEdit={onEdit}
             onDelete={onDelete}

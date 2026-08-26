@@ -5,10 +5,10 @@ import { createPortal } from 'react-dom';
 import { formatRelativeDue } from '../lib/dates';
 import { formatRecurrence } from '../lib/recurrence';
 import type { Category, Task } from '../types';
-import { PRIORITY_LABELS, PRIORITY_TINTS } from '../types';
+import { PRIORITY_LABELS, PRIORITY_TINTS, formatExpectedMinutes } from '../types';
 
-function cardSurfaceStyle(task: Task, category?: Category): CSSProperties {
-  if (task.status === 'completed') return {};
+function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: boolean): CSSProperties {
+  if (isDone) return {};
 
   if (task.priority) {
     return {
@@ -32,6 +32,7 @@ interface TaskCardPreviewProps {
   category?: Category;
   condensed?: boolean;
   dragOverlay?: boolean;
+  isCompletedColumn?: boolean;
 }
 
 export function TaskCardPreview({
@@ -39,8 +40,9 @@ export function TaskCardPreview({
   category,
   condensed = false,
   dragOverlay = false,
+  isCompletedColumn = false,
 }: TaskCardPreviewProps) {
-  const isDone = task.status === 'completed';
+  const isDone = isCompletedColumn;
   const due = task.dueDate
     ? formatRelativeDue(task.dueDate, { completed: isDone })
     : null;
@@ -56,7 +58,7 @@ export function TaskCardPreview({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={cardSurfaceStyle(task, category)}
+      style={cardSurfaceStyle(task, category, isDone)}
     >
       <div className="task-card__top">
         {category ? (
@@ -79,6 +81,9 @@ export function TaskCardPreview({
               {due.label}
             </span>
           )}
+          {task.expectedMinutes != null && (
+            <span className="task-card__time">{formatExpectedMinutes(task.expectedMinutes)}</span>
+          )}
           {task.priority && (
             <span className={`task-card__prio task-card__prio--${task.priority}`}>
               {PRIORITY_LABELS[task.priority]}
@@ -96,11 +101,18 @@ export function TaskCardPreview({
 interface TaskCardProps {
   task: Task;
   category?: Category;
+  isCompletedColumn?: boolean;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
 }
 
-export function TaskCard({ task, category, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({
+  task,
+  category,
+  isCompletedColumn = false,
+  onEdit,
+  onDelete,
+}: TaskCardProps) {
   const menuId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
@@ -108,7 +120,7 @@ export function TaskCard({ task, category, onEdit, onDelete }: TaskCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const isDone = task.status === 'completed';
+  const isDone = isCompletedColumn;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -189,7 +201,7 @@ export function TaskCard({ task, category, onEdit, onDelete }: TaskCardProps) {
         ]
           .filter(Boolean)
           .join(' ')}
-        style={cardSurfaceStyle(task, category)}
+        style={cardSurfaceStyle(task, category, isDone)}
       >
         <div className="task-card__top">
           {isDone ? (
@@ -310,6 +322,9 @@ export function TaskCard({ task, category, onEdit, onDelete }: TaskCardProps) {
                 >
                   {due.label}
                 </span>
+              )}
+              {task.expectedMinutes != null && (
+                <span className="task-card__time">{formatExpectedMinutes(task.expectedMinutes)}</span>
               )}
               {task.priority && (
                 <span className={`task-card__prio task-card__prio--${task.priority}`}>

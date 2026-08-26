@@ -1,4 +1,9 @@
 import { initializeApp } from 'firebase/app';
+import {
+  browserLocalPersistence,
+  getAuth,
+  setPersistence,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const env = import.meta.env;
@@ -19,3 +24,7 @@ export const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+/** Keep session across tab closes / browser restarts */
+void setPersistence(auth, browserLocalPersistence);

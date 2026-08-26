@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { dateFromOffset, daysUntilDue, todayISO } from '../lib/dates';
 import type {
+  BoardColumn,
   Category,
   Recurrence,
   RecurrenceFrequency,
@@ -9,12 +10,21 @@ import type {
   TaskPriority,
   TaskStatus,
 } from '../types';
-import { PRIORITY_LABELS, RECURRENCE_LABELS } from '../types';
+import {
+  DEFAULT_COLUMN_IDS,
+  EXPECTED_TIME_MAX,
+  EXPECTED_TIME_STEP,
+  PRIORITY_LABELS,
+  RECURRENCE_LABELS,
+  formatExpectedMinutes,
+  getStartColumnId,
+} from '../types';
 
 interface TaskModalProps {
   open: boolean;
   task: Task | null;
   categories: Category[];
+  columns: BoardColumn[];
   defaultStatus?: TaskStatus;
   nextOrder: number;
   onClose: () => void;
@@ -30,7 +40,8 @@ const emptyForm = {
   dueDate: '',
   categoryId: '',
   priority: '' as '' | TaskPriority,
-  status: 'not_started' as TaskStatus,
+  expectedMinutes: 0,
+  status: DEFAULT_COLUMN_IDS.start as TaskStatus,
   isRecurring: false,
   frequency: 'weekly' as RecurrenceFrequency,
   interval: 1,
@@ -48,7 +59,8 @@ export function TaskModal({
   open,
   task,
   categories,
-  defaultStatus = 'not_started',
+  columns,
+  defaultStatus,
   nextOrder,
   onClose,
   onSave,
@@ -61,6 +73,8 @@ export function TaskModal({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isEditing = Boolean(task);
   const minDate = todayISO();
+  const startId = getStartColumnId(columns);
+  const resolvedDefault = defaultStatus ?? startId;
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +91,7 @@ export function TaskModal({
         dueDate: task.dueDate ? clampDue(task.dueDate) : '',
         categoryId: task.categoryId ?? '',
         priority: task.priority ?? '',
+        expectedMinutes: task.expectedMinutes ?? 0,
         status: task.status,
         isRecurring: task.isRecurring,
         frequency: r?.frequency ?? 'weekly',
@@ -86,9 +101,14 @@ export function TaskModal({
         maxOccurrences: r?.maxOccurrences ?? 5,
       });
     } else {
-      setForm({ ...emptyForm, status: defaultStatus, dueDate: todayISO() });
+      setForm({
+        ...emptyForm,
+        status: resolvedDefault,
+        dueDate: todayISO(),
+        expectedMinutes: 0,
+      });
     }
-  }, [open, task, defaultStatus]);
+  }, [open, task, resolvedDefault]);
 
   useEffect(() => {
     if (!open) return;
@@ -141,7 +161,8 @@ export function TaskModal({
         dueDate: due,
         categoryId: form.categoryId,
         priority: form.priority || null,
-        status: isEditing ? form.status : 'not_started',
+        expectedMinutes: form.expectedMinutes > 0 ? form.expectedMinutes : null,
+        status: isEditing ? form.status : startId,
         order: task?.order ?? nextOrder,
         isRecurring: form.isRecurring,
         recurrence,
@@ -306,9 +327,47 @@ export function TaskModal({
             </label>
           </div>
 
-          {categories.length === 0 && (
-            <p className="field-note">Add a category from the top bar before creating a task.</p>
-          )}
+          <div className="field">
+            <span>Expected time</span>
+            <div className="time-stepper" role="group" aria-label="Expected time">
+              <button
+                type="button"
+                className="due-stepper__btn"
+                aria-label="Decrease expected time"
+                disabled={form.expectedMinutes <= 0}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    expectedMinutes: Math.max(0, f.expectedMinutes - EXPECTED_TIME_STEP),
+                  }))
+                }
+              >
+                −
+              </button>
+              <span className="time-stepper__label">
+                {form.expectedMinutes > 0
+                  ? formatExpectedMinutes(form.expectedMinutes)
+                  : 'Not set'}
+              </span>
+              <button
+                type="button"
+                className="due-stepper__btn"
+                aria-label="Increase expected time"
+                disabled={form.expectedMinutes >= EXPECTED_TIME_MAX}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    expectedMinutes: Math.min(
+                      EXPECTED_TIME_MAX,
+                      f.expectedMinutes + EXPECTED_TIME_STEP,
+                    ),
+                  }))
+                }
+              >
+                +
+              </button>
+            </div>
+          </div>
 
           {isEditing && (
             <label className="field">
@@ -317,9 +376,11 @@ export function TaskModal({
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as TaskStatus }))}
               >
-                <option value="not_started">Not started</option>
-                <option value="in_progress">In progress</option>
-                <option value="completed">Completed</option>
+                {columns.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </label>
           )}
@@ -335,9 +396,6 @@ export function TaskModal({
             >
               <span className="recur-toggle__copy">
                 <span className="recur-toggle__label">Repeat this task</span>
-                <span className="recur-toggle__hint">
-                  Completing it keeps a done copy and adds the next one to Not started
-                </span>
               </span>
               <span className="recur-toggle__track" aria-hidden="true">
                 <span className="recur-toggle__thumb" />
