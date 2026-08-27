@@ -47,7 +47,14 @@ export function Board({ uid, tasks, categories, columns, onEdit, onDelete, onToa
       }
     }
     for (const list of map.values()) {
-      list.sort((a, b) => a.order - b.order);
+      list.sort((a, b) => {
+        if (a.dueDate && b.dueDate) {
+          const byDue = a.dueDate.localeCompare(b.dueDate);
+          if (byDue !== 0) return byDue;
+        } else if (a.dueDate) return -1;
+        else if (b.dueDate) return 1;
+        return a.order - b.order;
+      });
     }
     return map;
   }, [tasks, columns, startId]);
