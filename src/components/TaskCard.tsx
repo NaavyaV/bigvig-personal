@@ -6,6 +6,7 @@ import { formatRelativeDue } from '../lib/dates';
 import { formatRecurrence } from '../lib/recurrence';
 import type { Category, Task } from '../types';
 import { PRIORITY_LABELS, PRIORITY_TINTS, formatExpectedMinutes } from '../types';
+import { TaskPreviewModal } from './TaskPreviewModal';
 
 function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: boolean): CSSProperties {
   if (isDone) return {};
@@ -25,66 +26,6 @@ function cardSurfaceStyle(task: Task, category: Category | undefined, isDone: bo
   }
 
   return {};
-}
-
-function TaskDescription({ text }: { text: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [overflows, setOverflows] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const check = () => {
-      if (expanded) return;
-      setOverflows(el.scrollHeight > el.clientHeight + 1);
-    };
-
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text, expanded]);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [text]);
-
-  return (
-    <div className={`task-card__desc-wrap${expanded ? ' is-open' : ''}`}>
-      <p
-        ref={ref}
-        className={`task-card__desc${expanded ? ' is-expanded' : ''}`}
-      >
-        {text}
-      </p>
-      {(overflows || expanded) && (
-        <button
-          type="button"
-          className="task-card__desc-toggle"
-          aria-expanded={expanded}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
-        >
-          <span>{expanded ? 'Show less' : 'Show more'}</span>
-          <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M2.5 4.5 L6 8 L9.5 4.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
 }
 
 interface TaskCardPreviewProps {
@@ -138,7 +79,9 @@ export function TaskCardPreview({
         )}
       </div>
       {!condensed && <h3 className="task-card__title">{task.title}</h3>}
-      {!condensed && task.description ? <TaskDescription text={task.description} /> : null}
+      {!condensed && task.description ? (
+        <p className="task-card__desc">{task.description}</p>
+      ) : null}
       {!condensed && (
         <div className="task-card__meta">
           {due && (
@@ -183,9 +126,10 @@ export function TaskCard({
   const menuId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const skipClickRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const isDone = isCompletedColumn;
 
@@ -193,6 +137,10 @@ export function TaskCard({
     id: task.id,
     data: { task },
   });
+
+  useEffect(() => {
+    if (isDragging) skipClickRef.current = true;
+  }, [isDragging]);
 
   useLayoutEffect(() => {
     if (!menuOpen || !moreBtnRef.current) {
@@ -242,12 +190,21 @@ export function TaskCard({
     ? formatRelativeDue(task.dueDate, { completed: isDone })
     : null;
 
-  const condensed = isDone && !expanded;
+  const condensed = isDone;
 
   const dragStyle: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     zIndex: isDragging ? 1000 : undefined,
     position: isDragging ? 'relative' : undefined,
+  };
+
+  const openDetail = () => {
+    if (skipClickRef.current) {
+      skipClickRef.current = false;
+      return;
+    }
+    setMenuOpen(false);
+    setDetailOpen(true);
   };
 
   return (
@@ -261,39 +218,25 @@ export function TaskCard({
       <article
         className={[
           'task-card',
+          'task-card--interactive',
           isDone ? 'task-card--done' : '',
           condensed ? 'task-card--condensed' : '',
-          expanded && isDone ? 'task-card--expanded' : '',
           task.priority ? `task-card--prio-${task.priority}` : '',
         ]
           .filter(Boolean)
           .join(' ')}
         style={cardSurfaceStyle(task, category, isDone)}
+        onClick={openDetail}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDetail();
+          }
+        }}
       >
         <div className="task-card__top">
           {isDone ? (
-            <button
-              type="button"
-              className="task-card__expand"
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse completed task' : 'Expand completed task'}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <path
-                  d="M2.5 4.5 L6 8 L9.5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+            <span className="task-card__spacer" aria-hidden="true" />
           ) : category ? (
             <span className="task-card__cat" style={{ '--cat': category.color } as CSSProperties}>
               {category.name}
@@ -380,16 +323,7 @@ export function TaskCard({
 
         {!condensed && (
           <>
-            {isDone && category && (
-              <span
-                className="task-card__cat task-card__cat--inline"
-                style={{ '--cat': category.color } as CSSProperties}
-              >
-                {category.name}
-              </span>
-            )}
-
-            {task.description ? <TaskDescription text={task.description} /> : null}
+            {task.description ? <p className="task-card__desc">{task.description}</p> : null}
 
             <div className="task-card__meta">
               {due && (
@@ -416,6 +350,15 @@ export function TaskCard({
           </>
         )}
       </article>
+
+      {detailOpen && (
+        <TaskPreviewModal
+          task={task}
+          category={category}
+          isCompleted={isDone}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
     </div>
   );
 }

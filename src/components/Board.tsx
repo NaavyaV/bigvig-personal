@@ -31,7 +31,7 @@ export function Board({ uid, tasks, categories, columns, onEdit, onDelete, onToa
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 3 },
+      activationConstraint: { distance: 8 },
     }),
   );
 

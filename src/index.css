@@ -379,6 +379,18 @@ button {
   word-break: break-word;
 }
 
+.task-preview__desc a {
+  color: var(--accent-deep);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  word-break: break-all;
+}
+
+.task-preview__desc a:hover {
+  color: var(--accent);
+}
+
 .task-preview__empty {
   margin: 0;
   color: var(--muted);
@@ -949,52 +961,20 @@ button {
   line-height: 1.3;
 }
 
-.task-card__desc-wrap {
-  margin: 0.4rem 0 0;
+.task-card--interactive {
+  cursor: pointer;
 }
 
 .task-card__desc {
-  margin: 0;
+  margin: 0.4rem 0 0;
   color: var(--ink-soft);
   font-size: 0.9rem;
   line-height: 1.45;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
-}
-
-.task-card__desc.is-expanded {
-  display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-}
-
-.task-card__desc-toggle {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--accent-deep);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.25rem 0 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  cursor: pointer;
-}
-
-.task-card__desc-toggle svg {
-  transition: transform 0.15s ease;
-}
-
-.task-card__desc-wrap.is-open .task-card__desc-toggle svg {
-  transform: rotate(180deg);
-}
-
-.task-card__desc-toggle:hover {
-  color: var(--accent);
 }
 
 .task-card__meta {
