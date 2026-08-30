@@ -25,3 +25,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# VibeHub (local integration — not part of your app)
+.vibehub/

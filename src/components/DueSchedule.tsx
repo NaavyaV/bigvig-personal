@@ -1,6 +1,7 @@
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLiveCalendarDay } from '../hooks/CalendarDayContext';
 import { daysUntilDue } from '../lib/dates';
 import type { BoardColumn, Category, Task } from '../types';
 import { formatExpectedMinutes, PRIORITY_LABELS } from '../types';
@@ -34,6 +35,7 @@ function sectionLabel(iso: string): { label: string; overdue: boolean; today: bo
 
 export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
   const titleId = useId();
+  const today = useLiveCalendarDay();
   const [open, setOpen] = useState(false);
   const [previewTask, setPreviewTask] = useState<Task | null>(null);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -55,7 +57,7 @@ export function DueSchedule({ tasks, categories, columns }: DueScheduleProps) {
       const dayTasks = (byDay.get(key) ?? []).sort((a, b) => a.title.localeCompare(b.title));
       return { key, ...meta, tasks: dayTasks };
     });
-  }, [tasks]);
+  }, [tasks, today]);
 
   useEffect(() => {
     if (!open) {

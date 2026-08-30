@@ -698,10 +698,16 @@ button {
 }
 
 .task-card--condensed .task-card__top {
+  position: relative;
   margin-bottom: 0;
   min-height: 0;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
+}
+
+.task-card--condensed .task-card__spacer {
+  display: none;
 }
 
 .task-card--condensed .task-card__title {
@@ -709,13 +715,24 @@ button {
   min-width: 0;
   font-size: 0.9rem;
   font-weight: 550;
+  text-align: center;
   text-decoration: line-through;
   text-decoration-thickness: 1px;
   color: var(--muted);
   margin: 0;
+  padding-inline: 1.75rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.task-card--condensed .task-card__trailing {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0;
+  max-width: none;
 }
 
 .task-card--expanded {

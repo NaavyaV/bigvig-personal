@@ -1,5 +1,6 @@
 import { useEffect, useId, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useLiveCalendarDay } from '../hooks/CalendarDayContext';
 import { formatRelativeDue } from '../lib/dates';
 import { linkifyText } from '../lib/linkify';
 import { formatRecurrence } from '../lib/recurrence';
@@ -22,6 +23,7 @@ export function TaskPreviewModal({
   onClose,
 }: TaskPreviewModalProps) {
   const titleId = useId();
+  useLiveCalendarDay();
   const completed = isCompleted || column?.role === 'end';
   const due = task.dueDate ? formatRelativeDue(task.dueDate, { completed }) : null;
 

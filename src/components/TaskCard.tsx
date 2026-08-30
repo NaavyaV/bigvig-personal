@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { useLiveCalendarDay } from '../hooks/CalendarDayContext';
 import { formatRelativeDue } from '../lib/dates';
 import { formatRecurrence } from '../lib/recurrence';
 import type { Category, Task } from '../types';
@@ -44,6 +45,7 @@ export function TaskCardPreview({
   isCompletedColumn = false,
 }: TaskCardPreviewProps) {
   const isDone = isCompletedColumn;
+  useLiveCalendarDay();
   const due = task.dueDate
     ? formatRelativeDue(task.dueDate, { completed: isDone })
     : null;
@@ -186,6 +188,7 @@ export function TaskCard({
     };
   }, [menuOpen]);
 
+  useLiveCalendarDay();
   const due = task.dueDate
     ? formatRelativeDue(task.dueDate, { completed: isDone })
     : null;

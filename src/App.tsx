@@ -7,6 +7,7 @@ import { ColumnManager } from './components/ColumnManager';
 import { DueSchedule } from './components/DueSchedule';
 import { ProfileMenu } from './components/ProfileMenu';
 import { TaskModal } from './components/TaskModal';
+import { CalendarDayProvider } from './hooks/CalendarDayContext';
 import { useBoardData } from './hooks/useBoardData';
 import { useToast } from './hooks/useToast';
 import {
@@ -106,6 +107,7 @@ function BoardApp({ uid }: { uid: string }) {
   }
 
   return (
+    <CalendarDayProvider>
     <div className="app">
       <div className="atmosphere" aria-hidden="true" />
 
@@ -245,6 +247,7 @@ function BoardApp({ uid }: { uid: string }) {
         </div>
       )}
     </div>
+    </CalendarDayProvider>
   );
 }
 
